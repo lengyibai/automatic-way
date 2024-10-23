@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A star</title>
+</head>
+
+<body style="margin: 0;">
+  <canvas style="border: 2px solid gray;"></canvas>
+  <p>起点：左上角</p>
+  <p>终点：右下角</p>
+  <p>蓝色：路线</p>
+  <p>黑色：障碍物</p>
+  <p>绿色：未探索的路</p>
+  <p>红色：已探索的路</p>
+</body>
+<script>
+  /*
+   * A* 算法
+   * */
+  const canvas = document.querySelector('canvas')
+  const ctx = canvas.getContext('2d')
+
+  const board = []
+  const openSet = [], closedSet = []
+  let width = height = 30
+  let start, end, path = [], over = false
+  let current
+  let numOfLoops = 0
+  let TIME = 100
+  canvas.width = 15 * width
+  canvas.height = 15 * height + 50
+
+
+  class Spot {
+    constructor(x, y) {
+      this.f = this.g = this.h = 0
+      this.x = x
+      this.y = y
+      this.neighbours = [] // 邻居
+      this.previous = null // 上一个
+      this.isObstacle = Math.random() < 0.3 // 是否为障碍
+    }
+  }
+  // 格子结构
+  for (let x = 0; x < width; x++) {
+    board.push([])
+    for (let y = 0; y < height; y++) {
+      board[x][y] = new Spot(x, y)
+    }
+  }
+
+  // 设置开始和结束点,并给他们设置不是障碍物
+  start = board[0][0]
+  end = board[width - 1][height - 1]
+  start.isObstacle = false
+  end.isObstacle = false
+
+  // 把起点加入openSet
+  openSet.push(start)
+
+  // 画格子
+  function displayBoard(board) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height) // 先清空
+
+    // 画障碍物和路
+    for (const arr in board) {
+      for (const tile in board[arr]) {
+        let t = board[arr][tile]
+        // 如果是障碍物就画成黑格子
+        if (t.isObstacle) {
+          ctx.fillStyle = 'black'
+          ctx.fillRect(t.x * 15, t.y * 15, 15, 15)
+        } else {
+          ctx.fillStyle = '#ccc'
+          ctx.fillRect(t.x * 15, t.y * 15, 15 - 1, 15 - 1)
+        }
+      }
+    }
+    // 画已经走过的格子
+    // console.log(closedSet);
+    for (const tile of closedSet) {
+      ctx.fillStyle = 'red'
+      ctx.fillRect(tile.x * 15, tile.y * 15, 15 - 1, 15 - 1)
+    }
+    // 画已经在openset里的格子
+    for (const tile of openSet) {
+      ctx.fillStyle = 'greenyellow'
+      ctx.fillRect(tile.x * 15, tile.y * 15, 15 - 1, 15 - 1)
+    }
+    // 画当前所走的路
+    if (current) {
+      let temp = current
+      path = [temp]
+      // 如果当前格子有上一个，就加入path，并把temp重新赋值
+      while (temp.previous) {
+        path.push(temp.previous)
+        temp = temp.previous
+      }
+      // 给path格子加颜色
+      for (const tile of path) {
+        ctx.fillStyle = 'blue'
+        ctx.fillRect(tile.x * 15, tile.y * 15, 15 - 1, 15 - 1)
+      }
+    }
+    // 画字
+    ctx.fillStyle = 'black'
+    ctx.font = '20px 黑体'
+    ctx.fillText('A* Algorithm', 10, canvas.height - 15)
+    // 已走步数
+    ctx.fillText('Total loops：' + numOfLoops, canvas.width - 170, canvas.height - 15)
+  }
+
+  function update() {
+    numOfLoops++
+    // 没有要走的格子，结束
+    if (!openSet.length) {
+      alert('死路一条！')
+      over = true
+    } else {
+      let winner = 0
+
+      // 选出f值最小的
+      for (let i = 0; i < openSet.length; i++) {
+        if (openSet[i].f < openSet[winner].f) {
+          winner = i
+        }
+      }
+
+      // 当前f值最小的格子
+      current = openSet[winner]
+      // console.log(current);
+
+      // 判断有没有到终点 如果到达终点，那么回溯走过的格子，如果没有，加入closedSet
+      if (current === end) {
+        let temp = current
+        path = [temp]
+
+        while (temp.previous) {
+          path.push(temp.previous)
+          temp = temp.previous
+        }
+        console.log(path);
+        over = true
+      }
+      closedSet.push(current)
+      openArrRemoveCurrent(openSet, current)
+
+      for (let n of current.neighbours) {
+        // 如果这个邻居已经被加入closedSet，就可以跳出本次循环
+        if (closedSet.includes(n)) { continue }
+        // 当前位置的周围需要当前的g+1
+        let tempG = current.g + 1
+
+        if (openSet.includes(n)) {
+          if (tempG < n.g) {
+            n.g = tempG
+          }
+        } else {
+          n.g = tempG
+          openSet.push(n)
+        }
+        n.h = heuristic(n, end)
+        n.f = n.g + n.h
+        n.previous = current
+      }
+    }
+
+    displayBoard(board)
+    if (!over) {
+      setTimeout(update, TIME)
+    }
+  }
+  // 删除openSet已经走过的
+  function openArrRemoveCurrent(openSet, ele) {
+    for (let i = openSet.length - 1; i >= 0; i--) {
+      if (openSet[i] === ele) {
+        openSet.splice(i, 1)
+      }
+    }
+  }
+  // 添加邻居
+  function addNeighbours() {
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        let spot = board[x][y]
+        let left = getTileAtPos(x - 1, y)
+        let right = getTileAtPos(x + 1, y)
+        let up = getTileAtPos(x, y - 1)
+        let down = getTileAtPos(x, y + 1)
+
+        // 判断是否是障碍，如果不是，就是邻居
+        left && !left.isObstacle && spot.neighbours.push(left)
+        right && !right.isObstacle && spot.neighbours.push(right)
+        up && !up.isObstacle && spot.neighbours.push(up)
+        down && !down.isObstacle && spot.neighbours.push(down)
+      }
+    }
+  }
+  // 判断spot是否不存在
+  function getTileAtPos(x, y) {
+    if (typeof board[x] === 'undefined' || typeof board[x][y] === 'undefined') return false
+    return board[x][y]
+  }
+  // 曼哈顿距离算法
+  function heuristic(a, b) {
+    return dist(a.x, a.y, b.x, b.y)
+  }
+  function dist(x1, y1, x2, y2) {
+    let a = x1 - x2
+    let b = y1 - y2
+    return Math.abs(a) + Math.abs(b)
+  }
+  addNeighbours()
+  update()
+</script>
+
+</html>
