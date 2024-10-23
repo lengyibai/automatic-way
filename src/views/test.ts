@@ -4,7 +4,6 @@ import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 gsap.registerPlugin(MotionPathPlugin);
 
 import { Container, Graphics, Text } from "pixi.js";
-import { LibContainerSize } from "../ui/LibContainerSize";
 
 /** @description A* 算法的实现 */
 export class AStarPathfinding extends Container {
@@ -29,16 +28,17 @@ export class AStarPathfinding extends Container {
   /** 用于绘图的Graphics对象 */
   private graphics: Graphics;
   /** 用于表示移动方块的Graphics对象 */
-  private square: LibContainerSize;
+  private square: Graphics;
 
   constructor() {
     super();
     this.graphics = new Graphics(); //初始化绘图对象
+    this.square = new Graphics(); //初始化移动方块对象
     this.addChild(this.graphics); //将绘图对象添加到容器中
+    this.addChild(this.square); //将方块对象添加到容器中
     this.initBoard(); //初始化网格
     this.addNeighbours(); //为每个点添加邻居
     this.findPath(); //执行路径寻找算法
-    this.drawSquare();
     this.moveSquareAlongPath(); //移动方块沿着路径
   }
 
@@ -178,6 +178,9 @@ export class AStarPathfinding extends Container {
       //设置当前最优网格的索引
       let winner = 0;
 
+      //遍历待检查点
+      console.log(this.openSet);
+
       //从待检查网格中找到总成本比当前最优点少的网格
       for (let i = 0; i < this.openSet.length; i++) {
         if (this.openSet[i].totalCost < this.openSet[winner].totalCost) {
@@ -260,23 +263,17 @@ export class AStarPathfinding extends Container {
   /** @description 绘制路径 */
   private displayBoard() {
     this.path.forEach((tile) => {
-      const spot = new LibContainerSize(14, 14, "#5555ff");
-      spot.x = tile.x * 15;
-      spot.y = tile.y * 15;
-      this.addChild(spot); //将格子添加到容器中
+      this.graphics.beginFill(0x5555ff); //设置填充颜色
+      this.graphics.drawRect(tile.x * 15, tile.y * 15, 14, 14); //绘制矩形表示路径
+      this.graphics.endFill(); //结束填充
     });
   }
 
-  /** @description 绘制单格 */
+  /** @description 绘制单格子 */
   private drawTile(tile: Spot) {
-    const spot = new LibContainerSize(
-      14,
-      14,
-      tile.isObstacle ? "#000" : "#ccc"
-    );
-    spot.x = tile.x * 15;
-    spot.y = tile.y * 15;
-    this.addChild(spot); //将格子添加到容器中
+    this.graphics.beginFill(tile.isObstacle ? 0x000000 : 0xcccccc); //根据是否是障碍物选择颜色
+    this.graphics.drawRect(tile.x * 15, tile.y * 15, 14, 14); //绘制矩形
+    this.graphics.endFill(); //结束填充
   }
 
   private moveSquareAlongPath() {
@@ -288,6 +285,7 @@ export class AStarPathfinding extends Container {
     }));
 
     gsap.to(this.square, {
+      //使用gsap动画移动方块
       motionPath: {
         path: pathCoordinates, //设置路径
         align: "self", //对齐方式
@@ -295,14 +293,15 @@ export class AStarPathfinding extends Container {
       },
       duration: 5, //动画持续时间
       ease: "linear", //动画缓动方式
+      onStart: () => this.drawSquare(), //动画开始时绘制方块
     });
   }
 
-  /** @description 绘制移动方块 */
   private drawSquare() {
-    this.square = new LibContainerSize(15, 15, "red");
-    this.addChild(this.square);
-    this.square.pivot.set(7.5, 7.5);
+    this.square.beginFill(0xff0000); //设置填充颜色为红色
+    this.square.drawRect(0, 0, 15, 15); //绘制方块
+    this.square.endFill(); //结束填充
+    this.square.pivot.set(7.5, 7.5); //设置方块的旋转中心
   }
 }
 
